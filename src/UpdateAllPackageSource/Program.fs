@@ -12,14 +12,15 @@ type SourceFilter = JsonProvider<"""https://gist.githubusercontent.com/HigorCesa
 type NugetConfig = XmlProvider<"""https://gist.githubusercontent.com/HigorCesar/eb12cf85fcc3151b3218851259cf6668/raw/97c9c4468e20eb3625711fa5ae2a4c683f426c0f/nuget.xml""">
 
 // Set all values below
-let bitbucketUsername = "username"; //Username with privileges to all repositories
-let bitbucketPassword = "password" 
+let bitbucketUsername = "bitbucketUsername"; //Username with privileges to all repositories
+let bitbucketPassword = "bitbucketPassword" 
+let repositoriesOwner = "higorcesar"
 let packageSourceToUpdate = "https://nuget.travix.com/nuget"
 let repositoryBaseUrl = "https://higorcesar@bitbucket.org"
 let newBranchName = "update-package-source"
 let newPackageSourceName = "new-package-source"
 let newPackageSourceUrl = "http://foo2.bar"
-let author = Signature("user name","user email", DateTimeOffset.UtcNow)
+let author = Signature("committer username","committer email", DateTimeOffset.UtcNow)
 //
 
 let logsFile = "processed.csv"
@@ -70,9 +71,8 @@ let main argv =
         repository
     
     let dispose (repository : Repository) =
-        let repoPath = repository.Info.WorkingDirectory
         repository.Dispose();
-        Directory.Delete(repoPath,true)
+        //Directory.Delete(repository.Info.WorkingDirectory,true)
     
     let log (remoteRepository : AllRepositories.Value) (repository : Repository)  =
         if not(File.Exists(logsFile)) then
@@ -86,7 +86,7 @@ let main argv =
 
     let addNewPackageSource (localRepository : Repository) =  
         let addSourceArgs = sprintf "sources Add -Name %s -Source %s -configfile %s" newPackageSourceName newPackageSourceUrl (sprintf "%snuget.config" localRepository.Info.WorkingDirectory)
-        let startInfo = new ProcessStartInfo(FileName = "../../../packages/NuGet.CommandLine.4.3.0/tools/NuGet.exe", Arguments = addSourceArgs)
+        let startInfo = new ProcessStartInfo(FileName = "../../packages/NuGet.CommandLine.4.4.1/tools/NuGet.exe", Arguments = addSourceArgs)
         startInfo.UseShellExecute <-false
         let addPackageSource = Process.Start(startInfo)
         addPackageSource.WaitForExit(10000) |> ignore
@@ -94,7 +94,7 @@ let main argv =
 
     let removePackageSource (localRepository : Repository) packageSource =  
         let commandArgs = sprintf "sources Remove -Name %s -configfile %s" packageSource (sprintf "%snuget.config" localRepository.Info.WorkingDirectory)
-        let startInfo = new ProcessStartInfo(FileName = "../../../packages/NuGet.CommandLine.4.3.0/tools/NuGet.exe", Arguments = commandArgs)
+        let startInfo = new ProcessStartInfo(FileName = "../../packages/NuGet.CommandLine.4.4.1/tools/NuGet.exe", Arguments = commandArgs)
         startInfo.UseShellExecute <-false
         let removePackageSource = Process.Start(startInfo)
         removePackageSource.WaitForExit(10000) |> ignore
@@ -126,14 +126,14 @@ let main argv =
         |> dispose
 
     let UpdateAllDotNetReposWithNewPackageSource() =
-        Request.createUrl Get "https://api.bitbucket.org/2.0/repositories/higorcesar"
+        Request.createUrl Get (sprintf "https://api.bitbucket.org/2.0/repositories/%s" repositoriesOwner)
         |> Request.responseAsString
         |> run
         |> AllRepositories.Parse
         |> (fun a -> a.Values |> Array.toList)
         |> List.filter shouldProcess
         |> List.filter doesRepoContainsNugetConfig
-        |> List.take 1
+        //|> List.take 1 only for testing
         |> List.map updatePackageSource
         |> ignore
 
